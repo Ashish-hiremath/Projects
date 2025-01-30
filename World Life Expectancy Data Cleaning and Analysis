@@ -1,0 +1,178 @@
+World Life Expectancy Data Cleaning and Analysis
+
+Overview
+
+This repository contains SQL scripts for cleaning and analyzing the World Life Expectancy dataset. The scripts perform data cleaning, handle missing values, remove duplicates, and conduct exploratory data analysis (EDA). This README provides an overview of the dataset processing, key insights, and usage instructions.
+
+Dataset Description
+
+The dataset contains life expectancy data for various countries across multiple years. Key attributes include:
+
+Country: Name of the country.
+
+Year: Year of the recorded data.
+
+Life Expectancy: Average life expectancy at birth.
+
+GDP: Gross Domestic Product per capita.
+
+Status: Whether a country is Developed or Developing.
+
+SQL Scripts Overview
+
+The repository includes the following SQL scripts:
+
+1️⃣ Data Cleaning
+
+The data cleaning script performs the following:
+
+Duplicate Removal: Identifies and deletes duplicate records based on country and year.
+
+Handling Missing Values:
+
+Missing status values are updated based on country classification.
+
+Missing life expectancy values are interpolated using the average of the previous and next years.
+
+Ensuring Consistency:
+
+Standardizes country names and status values.
+
+2️⃣ Exploratory Data Analysis (EDA)
+
+The EDA script generates insights from the cleaned dataset, including:
+
+Minimum and Maximum Life Expectancy per Country
+
+Life Expectancy Change Over Time
+
+Average Life Expectancy by Year
+
+GDP vs Life Expectancy Analysis
+
+Comparing High vs Low GDP Countries
+
+Key Findings
+
+Countries with higher GDP tend to have higher life expectancy.
+
+Life expectancy has generally increased over time, with noticeable improvements in developing countries.
+
+There are significant regional disparities in life expectancy.
+
+## world life expectancy data cleaning
+
+use analystbuilder;
+show tables
+##worldlifeexpectancy
+
+select * from worldlifeexpectancy;
+
+##check for duplicates
+select country,year,concat(country,year),count(concat(country,year)) from worldlifeexpectancy 
+group by country,year,concat(country,year)
+having count(concat(country,year))>1;
+
+select row_id from (
+select row_id,
+concat(country,year),
+row_number() over(partition by concat(country,year) order by concat(country,year)) as row_num
+from worldlifeexpectancy) as row_table
+where row_num > 1;
+
+delete from worldlifeexpectancy where row_id in (select row_id from (
+select row_id,
+concat(country,year),
+row_number() over(partition by concat(country,year) order by concat(country,year)) as row_num
+from worldlifeexpectancy) as row_table
+where row_num > 1);
+
+SET SQL_SAFE_UPDATES = 0;
+
+select * from worldlifeexpectancy 
+where status ='';
+
+select distinct(status) from worldlifeexpectancy 
+where status !='';
+
+select distinct(country) from worldlifeexpectancy 
+where status = 'Developing';
+
+update worldlifeexpectancy  set status = 'Developing' 
+where country in (select distinct(country) from worldlifeexpectancy 
+where status = 'Developing');
+
+update worldlifeexpectancy t1
+join worldlifeexpectancy t2 
+	on t1.country=t2.country
+set t1.status = 'Developed' 
+where t1.status = '' 
+and t2.status != ''
+and t2.status='Developed';
+
+select * from worldlifeexpectancy
+where country = 'United States of America'; 
+
+select country,year,'life expectancy' from worldlifeexpectancy
+where 'life expectancy'='';
+
+SELECT 
+    t1.country, t1.year, t1.`life expectancy`,
+    t2.country, t2.year, t2.`life expectancy`,
+    t3.country, t3.year, t3.`life expectancy`,
+    round((t2.`life expectancy` + t3.`life expectancy`)/2,1)
+FROM worldlifeexpectancy t1
+JOIN worldlifeexpectancy t2 
+    ON t1.country = t2.country
+    AND t1.year = t2.year - 1
+JOIN worldlifeexpectancy t3
+    ON t1.country = t3.country
+    AND t1.year = t3.year + 1
+WHERE t1.`life expectancy` IS NULL OR t1.`life expectancy` = '';
+
+update worldlifeexpectancy t1
+JOIN worldlifeexpectancy t2 
+    ON t1.country = t2.country
+    AND t1.year = t2.year - 1
+JOIN worldlifeexpectancy t3
+    ON t1.country = t3.country
+    AND t1.year = t3.year + 1
+set t1.`life expectancy`= round((t2.`life expectancy` + t3.`life expectancy`)/2,1)
+where  t1.`life expectancy` IS NULL OR t1.`life expectancy` = '';
+
+## world life expectancy EDA
+select country,min(`life expectancy`),max(`life expectancy`) from worldlifeexpectancy
+group by country
+having min(`life expectancy`) != 0 AND max(`life expectancy`) !=0
+order by country desc;
+
+select country,ROUND(MAX(`life expectancy`)-MIN(`life expectancy`),1) AS LIFE_INCREASE  from worldlifeexpectancy
+group by country
+having min(`life expectancy`) != 0 AND max(`life expectancy`) !=0
+order by LIFE_INCREASE;
+
+select YEAR,ROUND(AVG(`life expectancy`),2)from worldlifeexpectancy
+WHERE `life expectancy` != 0 AND `life expectancy` !=0
+GROUP BY year
+ORDER BY YEAR ;
+
+SELECT 
+    country, 
+    round(avg(GDP),1) as gdp, 
+    ROUND(AVG(`Life expectancy`), 1) AS life_exp
+FROM worldlifeexpectancy
+GROUP BY country,gdp
+having life_exp>0 and gdp>0;
+
+select 
+sum(case when gdp>= 1500 then 1 else 0 end) as high_gdp_count,
+round(avg(case when gdp>=1500 then `Life expectancy` else null end),2) high_gdp_life_exp,
+sum(case when gdp< 1500 then 1 else 0 end) as low_gdp_count,
+round(avg(case  when gdp>=1500 then `Life expectancy` else null end),2) low_gdp_life_exp
+from worldlifeexpectancy
+
+
+
+
+
+
